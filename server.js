@@ -79,3 +79,7 @@ mongoose.connect(process.env.MONGO_URI)
     app.listen(PORT, () => console.log(`🚀 Secure Server running on port ${PORT}`));
   })
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
+
+  app.get('/', (req, res) => {
+    res.send('Mess Manager API is running smoothly! 🚀');
+});
