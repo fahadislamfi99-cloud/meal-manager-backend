@@ -66,6 +66,7 @@ app.use('/api/manager', managerRoutes);
 app.use('/api/report', reportRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/public', publicRoutes);
+app.use(cors());
 
 // ==========================================
 // 🗄️ DATABASE CONNECTION & SERVER START
