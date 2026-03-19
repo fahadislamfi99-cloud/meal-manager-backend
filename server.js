@@ -19,12 +19,10 @@ const app = express();
 app.use(helmet());
 
 // ২. CORS Policy (শুধু আপনার ওয়েবসাইট ছাড়া অন্য কেউ API কল করতে পারবে না)
+// CORS Setup - Allow Frontend to connect
 app.use(cors({
-    origin: [
-        'http://127.0.0.1:5500', // লোকাল টেস্টিংয়ের জন্য
-        'http://localhost:5500', 
-        'https://আপনার-লাইভ-লিংক.netlify.app' // 👈 লাইভ করার পর এখানে Netlify লিংক দেবেন
-    ],
+    origin: ['https://mealmanager99.netlify.app', 'http://127.0.0.1:5500', 'http://localhost:5000'], // আপনার Netlify লিংক
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
 }));
 
