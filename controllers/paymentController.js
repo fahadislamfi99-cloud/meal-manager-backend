@@ -1,5 +1,6 @@
 const axios = require('axios');
-const Mess = require('../models/Mess'); // আপনার মেস মডেল
+const Mess = require('../models/Mess'); 
+const Coupon = require('../models/Coupon'); // 🚀 নতুন: কুপন ডাটাবেস ইমপোর্ট করা হলো
 
 // ১. বিকাশের টোকেন জেনারেট করার ফাংশন
 const getBkashToken = async () => {
@@ -15,19 +16,40 @@ const getBkashToken = async () => {
         });
         return data.id_token;
     } catch (error) {
-        console.error("bKash Token Error:", error.response?.data || error.message);
         throw new Error('Failed to generate bKash token');
     }
 };
 
-// ২. পেমেন্ট ক্রিয়েট করা (ইউজারকে যে লিংক দেবো)
+// ২. পেমেন্ট ক্রিয়েট করা (এখানে কুপনের আসল ম্যাজিক হবে)
 exports.createPayment = async (req, res) => {
     try {
-        const { packagePrice } = req.body; // 99 বা 999
-        const messId = req.messId; // Auth Middleware থেকে আসবে
+        const { packagePrice, promoCode } = req.body; // 🚀 ফ্রন্টএন্ড থেকে প্রোমো কোড রিসিভ করা হলো
+        const messId = req.messId;
 
-        if (![99, 999].includes(Number(packagePrice))) {
+        const originalPrice = Number(packagePrice);
+        if (![99, 999].includes(originalPrice)) {
             return res.status(400).json({ success: false, message: 'ভুল প্যাকেজ সিলেক্ট করেছেন!' });
+        }
+
+        let finalAmount = originalPrice;
+
+        // 🎟️ কুপন ভ্যালিডেশন এবং ডিসকাউন্ট হিসাব
+        if (promoCode) {
+            const coupon = await Coupon.findOne({ code: promoCode.toUpperCase(), isActive: true });
+            
+            if (!coupon) {
+                return res.status(400).json({ success: false, message: 'ভুল বা মেয়াদোত্তীর্ণ প্রোমো কোড!' });
+            }
+
+            // ডিসকাউন্ট কাটাকাটি
+            if (coupon.discountType === 'flat') {
+                finalAmount -= coupon.discountAmount;
+            } else if (coupon.discountType === 'percentage') {
+                finalAmount -= (finalAmount * coupon.discountAmount) / 100;
+            }
+
+            // পেমেন্ট যেন নেগেটিভ বা শূন্য না হয় (বিকাশের মিনিমাম লিমিট ১ টাকা)
+            if (finalAmount < 1) finalAmount = 1;
         }
 
         const token = await getBkashToken();
@@ -36,16 +58,14 @@ exports.createPayment = async (req, res) => {
         const { data } = await axios.post(`${process.env.BKASH_BASE_URL}/tokenized/checkout/create`, {
             mode: '0011',
             payerReference: messId,
-            callbackURL: `https://meal-manager-backend-kp8y.onrender.com/api/payment/callback?messId=${messId}&pkg=${packagePrice}`,
-            amount: packagePrice,
+            // 💡 নোটিশ: কলব্যাক লিংকে আমরা আসল দাম (originalPrice) পাঠাচ্ছি, যাতে পেমেন্ট শেষে মেয়াদ ঠিকমতো বাড়ে
+            callbackURL: `https://meal-manager-backend-kp8y.onrender.com/api/payment/callback?messId=${messId}&pkg=${originalPrice}`,
+            amount: finalAmount, // 💡 কিন্তু বিকাশে কাটবে ডিসকাউন্ট করা দাম (finalAmount)
             currency: 'BDT',
             intent: 'sale',
             merchantInvoiceNumber: invoiceNo
         }, {
-            headers: {
-                Authorization: token,
-                'X-APP-Key': process.env.BKASH_APP_KEY
-            }
+            headers: { Authorization: token, 'X-APP-Key': process.env.BKASH_APP_KEY }
         });
 
         if (data && data.bkashURL) {
@@ -58,29 +78,20 @@ exports.createPayment = async (req, res) => {
     }
 };
 
-// ৩. পেমেন্ট কমপ্লিট হওয়ার পর বিকাশের কলব্যাক রিসিভ করা (The Magic)
+// ৩. পেমেন্ট কলব্যাক (আগের মতোই থাকবে)
 exports.bkashCallback = async (req, res) => {
     const { paymentID, status, messId, pkg } = req.query;
 
     if (status === 'success') {
         try {
             const token = await getBkashToken();
-            
-            // পেমেন্টটি ভেরিফাই বা Execute করা
-            const { data } = await axios.post(`${process.env.BKASH_BASE_URL}/tokenized/checkout/execute`, {
-                paymentID
-            }, {
-                headers: {
-                    Authorization: token,
-                    'X-APP-Key': process.env.BKASH_APP_KEY
-                }
+            const { data } = await axios.post(`${process.env.BKASH_BASE_URL}/tokenized/checkout/execute`, { paymentID }, {
+                headers: { Authorization: token, 'X-APP-Key': process.env.BKASH_APP_KEY }
             });
 
             if (data && data.statusCode === '0000') {
-                // পেমেন্ট ১০০% সফল! এবার ডাটাবেসে ইউজারের মেয়াদ বাড়িয়ে দেবো
                 const mess = await Mess.findById(messId);
-                
-                let addDays = Number(pkg) === 999 ? 365 : 30; // ৯৯৯ টাকা হলে ১ বছর, নাহলে ৩০ দিন
+                let addDays = Number(pkg) === 999 ? 365 : 30; 
                 let currentExpiry = mess.trialEndsAt && new Date(mess.trialEndsAt) > new Date() ? new Date(mess.trialEndsAt) : new Date();
                 
                 currentExpiry.setDate(currentExpiry.getDate() + addDays);
@@ -89,14 +100,11 @@ exports.bkashCallback = async (req, res) => {
                 mess.trialEndsAt = currentExpiry;
                 await mess.save();
 
-                // সফল হলে ইউজারকে আপনার ফ্রন্টএন্ডের ড্যাশবোর্ডে রিডাইরেক্ট করে দেবো
                 return res.redirect('https://mealmanager99.netlify.app/app.html?payment=success');
             }
         } catch (error) {
             console.error("Execute Error:", error.message);
         }
     }
-
-    // পেমেন্ট ফেইল করলে বা ইউজার ক্যান্সেল করলে
     res.redirect('https://mealmanager99.netlify.app/app.html?payment=failed');
 };
