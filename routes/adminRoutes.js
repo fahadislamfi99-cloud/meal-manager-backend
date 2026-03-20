@@ -12,6 +12,8 @@ router.post('/toggle-subscription', adminProtect, adminController.toggleGlobalSu
 router.post('/coupons', adminProtect, adminController.createCoupon);
 router.put('/messes/:messId/cancel', adminProtect, adminController.cancelSubscription);
 
+router.get('/analytics-chart', adminProtect, adminController.getChartData); // chart data রাউট
+
 // Price Control Routes
 router.get('/pricing', adminController.getPricing); // ওপেন রাউট
 router.post('/pricing', adminProtect, adminController.updatePricing); // সিকিউরড রাউট

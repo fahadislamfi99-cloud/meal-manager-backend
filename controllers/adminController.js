@@ -196,3 +196,58 @@ exports.deleteCoupon = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error deleting coupon' });
     }
 };
+
+// ১১. ড্যাশবোর্ড চার্টের জন্য গত ৬ মাসের ডেটা
+exports.getChartData = async (req, res) => {
+    try {
+        const Transaction = require('../models/Transaction');
+        const Mess = require('../models/Mess');
+        
+        // ৬ মাস আগের তারিখ বের করা
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+        sixMonthsAgo.setDate(1); 
+
+        // ডেটাবেস থেকে ডেটা আনা
+        const transactions = await Transaction.find({ date: { $gte: sixMonthsAgo }, status: 'Success' });
+        const messes = await Mess.find({ createdAt: { $gte: sixMonthsAgo } });
+
+        // মাসের নামগুলোর একটি ফাঁকা কাঠামো তৈরি
+        const months = [];
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            months.push({
+                month: d.getMonth(),
+                year: d.getFullYear(),
+                label: monthNames[d.getMonth()],
+                revenue: 0,
+                messes: 0
+            });
+        }
+
+        // ট্রানজেকশন থেকে মাসের রেভিনিউ যোগ করা
+        transactions.forEach(trx => {
+            const trxDate = new Date(trx.date);
+            const match = months.find(m => m.month === trxDate.getMonth() && m.year === trxDate.getFullYear());
+            if (match) match.revenue += trx.amount;
+        });
+
+        // মেস থেকে মাসের নতুন রেজিস্ট্রেশন যোগ করা
+        messes.forEach(mess => {
+            const messDate = new Date(mess.createdAt);
+            const match = months.find(m => m.month === messDate.getMonth() && m.year === messDate.getFullYear());
+            if (match) match.messes += 1;
+        });
+
+        const labels = months.map(m => m.label);
+        const revenueData = months.map(m => m.revenue);
+        const messesData = months.map(m => m.messes);
+
+        res.status(200).json({ success: true, labels, revenueData, messesData });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching chart data' });
+    }
+};
