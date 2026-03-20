@@ -55,6 +55,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const settingRoutes = require('./routes/settingRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/members', memberRoutes);
@@ -67,6 +68,7 @@ app.use('/api/settings', settingRoutes);
 app.use('/api/public', publicRoutes);
 app.use(cors());
 app.use('/api/payment', paymentRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ==========================================
 // 🗄️ DATABASE CONNECTION & SERVER START
