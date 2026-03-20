@@ -3,6 +3,7 @@ const Mess = require('../models/Mess');
 const Coupon = require('../models/Coupon'); 
 const AdminSetting = require('../models/AdminSetting');
 const Transaction = require('../models/Transaction');
+const sendEmail = require('../utils/sendEmail');
 
 // ১. বিকাশের টোকেন জেনারেট করার ফাংশন
 const getBkashToken = async () => {
@@ -127,12 +128,45 @@ exports.bkashCallback = async (req, res) => {
                     await Coupon.findOneAndUpdate({ code: promo }, { $inc: { usedCount: 1 } }); 
                 }
 
+                // 📧 মেইল পাঠানোর ম্যাজিক লজিক
+                try {
+                    const expiryDate = currentExpiry.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+                    
+                    const emailHTML = `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+                            <h2 style="color: #10b981; text-align: center;">Payment Successful! 🎉</h2>
+                            <p>Hello <strong>${mess.messName}</strong>,</p>
+                            <p>Thank you for choosing Mess Manager. Your subscription payment has been successfully processed.</p>
+                            
+                            <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                <p style="margin: 5px 0;"><strong>Amount Paid:</strong> ৳${pkg}</p>
+                                <p style="margin: 5px 0;"><strong>Transaction ID:</strong> ${paymentID}</p>
+                                <p style="margin: 5px 0;"><strong>Valid Until:</strong> ${expiryDate}</p>
+                            </div>
+                            
+                            <p>Your premium features are now unlocked. If you have any questions, feel free to reply to this email.</p>
+                            <br>
+                            <p style="color: #64748b; font-size: 14px;">Regards,<br><strong>Mess Manager Team</strong></p>
+                        </div>
+                    `;
+
+                    await sendEmail({
+                        email: mess.messEmail,
+                        subject: 'Payment Receipt & Confirmation - Mess Manager',
+                        message: emailHTML
+                    });
+                    console.log("Confirmation email sent to:", mess.messEmail);
+                } catch (emailError) {
+                    console.error("Email Sending Failed:", emailError.message);
+                }
+
                 return res.redirect('https://mealmanager99.netlify.app/app.html?payment=success'); // (লোকালহোস্ট টেস্টের জন্য লিংকটি পাল্টে নিতে পারেন)
             }
         } catch (error) {
             console.error("Execute Error:", error.message);
         }
     }
+    
     res.redirect('https://mealmanager99.netlify.app/app.html?payment=failed');
 };
 
