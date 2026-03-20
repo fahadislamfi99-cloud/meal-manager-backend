@@ -128,7 +128,7 @@ exports.bkashCallback = async (req, res) => {
                     await Coupon.findOneAndUpdate({ code: promo }, { $inc: { usedCount: 1 } }); 
                 }
 
-                // 📧 মেইল পাঠানোর ম্যাজিক লজিক
+                // 📧 মেইল পাঠানোর ম্যাজিক লজিক (Background Task)
                 try {
                     const expiryDate = currentExpiry.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
                     
@@ -150,14 +150,16 @@ exports.bkashCallback = async (req, res) => {
                         </div>
                     `;
 
-                    await sendEmail({
+                    // 🚀 ম্যাজিক: এখান থেকে await তুলে দেওয়া হলো। এটি এখন ব্যাকগ্রাউন্ডে কাজ করবে!
+                    sendEmail({
                         email: mess.messEmail,
                         subject: 'Payment Receipt & Confirmation - Mess Manager',
                         message: emailHTML
-                    });
-                    console.log("Confirmation email sent to:", mess.messEmail);
-                } catch (emailError) {
-                    console.error("Email Sending Failed:", emailError.message);
+                    }).catch(err => console.error("Background Email Error:", err.message));
+                    
+                    console.log("Confirmation email triggered for:", mess.messEmail);
+                } catch (emailSetupError) {
+                    console.error("Email Setup Failed:", emailSetupError.message);
                 }
 
                 return res.redirect('https://mealmanager99.netlify.app/app.html?payment=success'); // (লোকালহোস্ট টেস্টের জন্য লিংকটি পাল্টে নিতে পারেন)
