@@ -34,7 +34,7 @@ exports.toggleGlobalSubscription = async (req, res) => {
         if (isSubscriptionOn) {
             // সাবস্ক্রিপশন অন করলে সবার ২০ দিনের ট্রায়াল শুরু হবে
             const trialEndsAt = new Date();
-            trialEndsAt.setDate(trialEndsAt.getDate() + 20); // আজ থেকে ২০ দিন
+            trialEndsAt.setDate(trialEndsAt.getDate() + 20); 
 
             await Mess.updateMany({}, { 
                 subscriptionStatus: 'trial', 
@@ -43,10 +43,10 @@ exports.toggleGlobalSubscription = async (req, res) => {
 
             res.status(200).json({ success: true, message: 'Subscription Mode ON! All messes got 20 days trial.' });
         } else {
-            // ফ্রি করে দিলে সবার ট্রায়াল ডেট মুছে যাবে এবং স্ট্যাটাস active হয়ে যাবে (অ্যাপ লক হবে না)
+            // 🚀 ম্যাজিক: ফ্রি করে দিলে ডেট null হয়ে যাবে এবং স্ট্যাটাস active হবে
             await Mess.updateMany({}, { 
                 subscriptionStatus: 'active', 
-                $unset: { trialEndsAt: 1 } // ডেট ডিলিট
+                trialEndsAt: null 
             });
 
             res.status(200).json({ success: true, message: 'App is now 100% FREE for everyone!' });
