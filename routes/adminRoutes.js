@@ -12,6 +12,10 @@ router.post('/toggle-subscription', adminProtect, adminController.toggleGlobalSu
 router.post('/coupons', adminProtect, adminController.createCoupon);
 router.put('/messes/:messId/cancel', adminProtect, adminController.cancelSubscription);
 
+// Price Control Routes
+router.get('/pricing', adminController.getPricing); // ওপেন রাউট
+router.post('/pricing', adminProtect, adminController.updatePricing); // সিকিউরড রাউট
+
 // আনব্লক করার রাউট
 router.put('/messes/:messId/unblock', adminProtect, adminController.unblockMess);
 module.exports = router;

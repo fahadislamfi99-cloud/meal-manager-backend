@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const Mess = require('../models/Mess');
 const Coupon = require('../models/Coupon');
+const AdminSetting = require('../models/AdminSetting'); // 🚀 নতুন লাইন
 
 // ১. সুপার অ্যাডমিন লগিন (শুধু আপনি ঢুকতে পারবেন)
 exports.adminLogin = async (req, res) => {
@@ -103,5 +104,37 @@ exports.unblockMess = async (req, res) => {
         res.status(200).json({ success: true, message: 'Mess Unblocked! তারা এখন আবার অ্যাপ ব্যবহার করতে পারবে।' });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error during unblock' });
+    }
+};
+
+// ৭. গ্লোবাল প্রাইস দেখা (সবাই দেখতে পারবে)
+exports.getPricing = async (req, res) => {
+    try {
+        let settings = await AdminSetting.findOne();
+        if (!settings) {
+            settings = await AdminSetting.create({ monthlyPrice: 99, yearlyPrice: 999 });
+        }
+        res.status(200).json({ success: true, data: settings });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error fetching price' });
+    }
+};
+
+// ৮. গ্লোবাল প্রাইস আপডেট করা (শুধু সুপার অ্যাডমিন পারবে)
+exports.updatePricing = async (req, res) => {
+    try {
+        const { monthlyPrice, yearlyPrice } = req.body;
+        let settings = await AdminSetting.findOne();
+        
+        if (!settings) {
+            settings = new AdminSetting({ monthlyPrice, yearlyPrice });
+        } else {
+            settings.monthlyPrice = monthlyPrice;
+            settings.yearlyPrice = yearlyPrice;
+        }
+        await settings.save();
+        res.status(200).json({ success: true, message: 'Pricing updated globally!', data: settings });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error updating price' });
     }
 };

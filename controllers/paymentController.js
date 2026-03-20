@@ -1,6 +1,7 @@
 const axios = require('axios');
 const Mess = require('../models/Mess'); 
 const Coupon = require('../models/Coupon'); // 🚀 নতুন: কুপন ডাটাবেস ইমপোর্ট করা হলো
+const AdminSetting = require('../models/AdminSetting');
 
 // ১. বিকাশের টোকেন জেনারেট করার ফাংশন
 const getBkashToken = async () => {
@@ -27,7 +28,12 @@ exports.createPayment = async (req, res) => {
         const messId = req.messId;
 
         const originalPrice = Number(packagePrice);
-        if (![99, 999].includes(originalPrice)) {
+        
+        // 🚀 ডাটাবেস থেকে বর্তমান আসল দাম নিয়ে আসা হচ্ছে
+        const pricing = await AdminSetting.findOne() || { monthlyPrice: 99, yearlyPrice: 999 };
+        const validPrices = [pricing.monthlyPrice, pricing.yearlyPrice];
+
+        if (!validPrices.includes(originalPrice)) {
             return res.status(400).json({ success: false, message: 'ভুল প্যাকেজ সিলেক্ট করেছেন!' });
         }
 
@@ -107,4 +113,35 @@ exports.bkashCallback = async (req, res) => {
         }
     }
     res.redirect('https://mealmanager99.netlify.app/app.html?payment=failed');
+};
+
+// ৪. কুপন ভেরিফাই করা (পেমেন্টের আগে চেক করে ডিসকাউন্ট দেখানোর জন্য)
+exports.verifyCoupon = async (req, res) => {
+    try {
+        const { promoCode, packagePrice } = req.body;
+        const coupon = await Coupon.findOne({ code: promoCode.toUpperCase(), isActive: true });
+
+        if (!coupon) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired promo code!' });
+        }
+
+        let discountAmount = 0;
+        if (coupon.discountType === 'flat') {
+            discountAmount = coupon.discountAmount;
+        } else if (coupon.discountType === 'percentage') {
+            discountAmount = (packagePrice * coupon.discountAmount) / 100;
+        }
+
+        let finalPrice = packagePrice - discountAmount;
+        if (finalPrice < 1) finalPrice = 1; // বিকাশে মিনিমাম ১ টাকা কাটতে হয়
+
+        res.status(200).json({
+            success: true,
+            discountAmount,
+            finalPrice,
+            message: 'Promo applied successfully!'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error verifying coupon' });
+    }
 };
