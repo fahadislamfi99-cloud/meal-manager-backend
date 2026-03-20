@@ -86,3 +86,22 @@ exports.cancelSubscription = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error cancelling subscription' });
     }
 };
+
+// ৬. মেস আনব্লক করা (Unblock)
+exports.unblockMess = async (req, res) => {
+    try {
+        const { messId } = req.params;
+        const mess = await Mess.findById(messId);
+        
+        if(!mess) return res.status(404).json({ success: false, message: 'Mess not found' });
+
+        // আনব্লক করলে তাকে আবার "Active" স্টেটে ফ্রি মোডে ফিরিয়ে দেওয়া হবে
+        mess.subscriptionStatus = 'active';
+        mess.trialEndsAt = null; 
+        await mess.save();
+
+        res.status(200).json({ success: true, message: 'Mess Unblocked! তারা এখন আবার অ্যাপ ব্যবহার করতে পারবে।' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error during unblock' });
+    }
+};
