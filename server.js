@@ -30,7 +30,7 @@ app.use(cors({
 // নিয়ম: এক IP থেকে ১৫ মিনিটে ১০০ বারের বেশি রিকোয়েস্ট করলে ব্লক করে দেবে
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // ১৫ মিনিট
-    max: 100, 
+    max: 1000, 
     message: { success: false, message: 'আপনি অনেক বেশি রিকোয়েস্ট পাঠিয়েছেন! দয়া করে ১৫ মিনিট পর আবার চেষ্টা করুন।' }
 });
 app.use('/api/', apiLimiter);
