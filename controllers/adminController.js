@@ -96,12 +96,16 @@ exports.unblockMess = async (req, res) => {
         
         if(!mess) return res.status(404).json({ success: false, message: 'Mess not found' });
 
-        // আনব্লক করলে তাকে আবার "Active" স্টেটে ফ্রি মোডে ফিরিয়ে দেওয়া হবে
-        mess.subscriptionStatus = 'active';
-        mess.trialEndsAt = null; 
+        // 🚀 ম্যাজিক ফিক্স: আনব্লক করলে তাকে Free Lifetime না দিয়ে, পেমেন্ট করার জন্য ২৪ ঘণ্টার Grace Period (সুযোগ) দেওয়া হলো!
+        mess.subscriptionStatus = 'trial';
+        
+        const gracePeriod = new Date();
+        gracePeriod.setDate(gracePeriod.getDate() + 1); // বর্তমান সময়ের সাথে ১ দিন (২৪ ঘণ্টা) যোগ করা হলো
+        mess.trialEndsAt = gracePeriod; 
+        
         await mess.save();
 
-        res.status(200).json({ success: true, message: 'Mess Unblocked! তারা এখন আবার অ্যাপ ব্যবহার করতে পারবে।' });
+        res.status(200).json({ success: true, message: 'Mess Unblocked! পেমেন্ট করার জন্য তাদের ২৪ ঘণ্টা সময় দেওয়া হয়েছে।' });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error during unblock' });
     }
@@ -136,5 +140,15 @@ exports.updatePricing = async (req, res) => {
         res.status(200).json({ success: true, message: 'Pricing updated globally!', data: settings });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error updating price' });
+    }
+};
+
+// ৯. সব কুপন দেখা
+exports.getAllCoupons = async (req, res) => {
+    try {
+        const coupons = await Coupon.find().sort({ createdAt: -1 });
+        res.status(200).json({ success: true, data: coupons });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching coupons' });
     }
 };

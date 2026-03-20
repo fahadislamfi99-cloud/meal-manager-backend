@@ -16,6 +16,8 @@ router.put('/messes/:messId/cancel', adminProtect, adminController.cancelSubscri
 router.get('/pricing', adminController.getPricing); // ওপেন রাউট
 router.post('/pricing', adminProtect, adminController.updatePricing); // সিকিউরড রাউট
 
+router.get('/coupons', adminProtect, adminController.getAllCoupons);
+
 // আনব্লক করার রাউট
 router.put('/messes/:messId/unblock', adminProtect, adminController.unblockMess);
 module.exports = router;
