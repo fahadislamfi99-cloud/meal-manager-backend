@@ -12,4 +12,6 @@ router.post('/toggle-subscription', adminProtect, adminController.toggleGlobalSu
 router.post('/coupons', adminProtect, adminController.createCoupon);
 router.put('/messes/:messId/cancel', adminProtect, adminController.cancelSubscription);
 
+// আনব্লক করার রাউট
+router.put('/messes/:messId/unblock', adminProtect, adminController.unblockMess);
 module.exports = router;
