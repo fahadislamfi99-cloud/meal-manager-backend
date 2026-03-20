@@ -163,3 +163,36 @@ exports.getAllTransactions = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error fetching transactions' });
     }
 };
+
+// কুপন তৈরি করা (লিমিট ও মেয়াদ সহ)
+exports.createCoupon = async (req, res) => {
+    try {
+        const { code, discountAmount, discountType, usageLimit, expiresAt } = req.body;
+        
+        const existing = await Coupon.findOne({ code: code.toUpperCase() });
+        if(existing) return res.status(400).json({ success: false, message: 'এই কুপন কোডটি আগেই তৈরি করা আছে!' });
+
+        const coupon = await Coupon.create({
+            code: code.toUpperCase(),
+            discountAmount,
+            discountType,
+            usageLimit,
+            expiresAt
+        });
+
+        res.status(201).json({ success: true, data: coupon, message: 'Coupon created successfully!' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error creating coupon' });
+    }
+};
+
+// কুপন ডিলিট করা
+exports.deleteCoupon = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await Coupon.findByIdAndDelete(id);
+        res.status(200).json({ success: true, message: 'Coupon deleted successfully!' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error deleting coupon' });
+    }
+};
