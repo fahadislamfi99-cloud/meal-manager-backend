@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const Mess = require('../models/Mess');
 const Coupon = require('../models/Coupon');
 const AdminSetting = require('../models/AdminSetting'); // 🚀 নতুন লাইন
+const Transaction = require('../models/Transaction');
 
 // ১. সুপার অ্যাডমিন লগিন (শুধু আপনি ঢুকতে পারবেন)
 exports.adminLogin = async (req, res) => {
@@ -150,5 +151,15 @@ exports.getAllCoupons = async (req, res) => {
         res.status(200).json({ success: true, data: coupons });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Error fetching coupons' });
+    }
+};
+
+// ১০. সব ট্রানজেকশন লোড করা
+exports.getAllTransactions = async (req, res) => {
+    try {
+        const transactions = await Transaction.find().sort({ date: -1 }); // নতুনগুলো আগে আসবে
+        res.status(200).json({ success: true, data: transactions });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching transactions' });
     }
 };

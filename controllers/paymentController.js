@@ -2,6 +2,7 @@ const axios = require('axios');
 const Mess = require('../models/Mess'); 
 const Coupon = require('../models/Coupon'); // 🚀 নতুন: কুপন ডাটাবেস ইমপোর্ট করা হলো
 const AdminSetting = require('../models/AdminSetting');
+const Transaction = require('../models/Transaction');
 
 // ১. বিকাশের টোকেন জেনারেট করার ফাংশন
 const getBkashToken = async () => {
@@ -105,6 +106,15 @@ exports.bkashCallback = async (req, res) => {
                 mess.subscriptionStatus = 'active';
                 mess.trialEndsAt = currentExpiry;
                 await mess.save();
+
+                // 🚀 ম্যাজিক: পেমেন্ট সফল হওয়ার সাথে সাথে ডাটাবেসে ট্রানজেকশন সেভ করা হলো
+                await Transaction.create({
+                    messId: mess._id,
+                    messName: mess.messName,
+                    amount: Number(pkg), // ৳99 বা ৳999
+                    trxId: paymentID,
+                    status: 'Success'
+                });
 
                 return res.redirect('https://mealmanager99.netlify.app/app.html?payment=success');
             }

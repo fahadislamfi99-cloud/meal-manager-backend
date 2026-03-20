@@ -18,6 +18,8 @@ router.post('/pricing', adminProtect, adminController.updatePricing); // সি�
 
 router.get('/coupons', adminProtect, adminController.getAllCoupons);
 
+router.get('/transactions', adminProtect, adminController.getAllTransactions);
+
 // আনব্লক করার রাউট
 router.put('/messes/:messId/unblock', adminProtect, adminController.unblockMess);
 module.exports = router;
