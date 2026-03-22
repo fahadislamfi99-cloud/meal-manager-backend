@@ -1,29 +1,30 @@
-const nodemailer = require('nodemailer');
+const axios = require('axios');
 
 const sendEmail = async (options) => {
-    // 🚀 ম্যাজিক ফিক্স: Render-এর IPv6 ব্লক এড়াতে কাস্টম হোস্ট এবং পোর্ট (587) বসানো হলো
-    const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false, // 587 পোর্টের জন্য এটি false রাখতে হয়, তবে এটি সম্পূর্ণ নিরাপদ (TLS)
-        requireTLS: true,
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS
-        },
-        tls: {
-            rejectUnauthorized: false
-        }
-    });
-
-    const mailOptions = {
-        from: 'Mess Manager Team <no-reply@messmanager.com>',
-        to: options.email,
-        subject: options.subject,
-        html: options.message
-    };
-
-    await transporter.sendMail(mailOptions);
+    try {
+        const response = await axios.post(
+            'https://api.brevo.com/v3/smtp/email',
+            {
+                // কে মেইল পাঠাচ্ছে (from)
+                sender: { name: 'Mess Manager Team', email: 'hello@messmanager.com' },
+                // কাকে মেইল পাঠানো হচ্ছে (to)
+                to: [{ email: options.email }],
+                // মেইলের সাবজেক্ট এবং বডি
+                subject: options.subject,
+                htmlContent: options.message
+            },
+            {
+                headers: {
+                    'accept': 'application/json',
+                    'api-key': process.env.BREVO_API_KEY, // 🚀 আপনার গোপন API Key
+                    'content-type': 'application/json'
+                }
+            }
+        );
+        console.log("✅ Brevo Email Sent Successfully!", response.data);
+    } catch (error) {
+        console.error("❌ Brevo Email Error:", error.response ? error.response.data : error.message);
+    }
 };
 
 module.exports = sendEmail;
