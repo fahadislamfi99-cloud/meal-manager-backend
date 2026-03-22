@@ -1,5 +1,4 @@
 const Mess = require('../models/Mess');
-const nodemailer = require('nodemailer');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -221,6 +220,7 @@ exports.updateProfile = async (req, res) => {
 exports.forgotPin = async (req, res) => {
     try {
         const Mess = require('../models/Mess');
+        const sendEmail = require('../utils/sendEmail'); // 🚀 ম্যাজিক: আমাদের নতুন Brevo API ইমপোর্ট করা হলো
         const { messEmail } = req.body;
 
         const mess = await Mess.findOne({ messEmail: messEmail.toLowerCase() });
@@ -234,38 +234,30 @@ exports.forgotPin = async (req, res) => {
         mess.resetOtpExpire = Date.now() + 10 * 60 * 1000; 
         await mess.save();
 
-        // ইমেইল পাঠানোর সেটআপ (Nodemailer)
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS.replace(/\s+/g, '') // স্পেস থাকলে মুছে ফেলবে
-            }
+        // 📧 ইমেইলের ডিজাইন
+        const emailHTML = `
+            <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin: auto;">
+                <h2 style="color: #0d6efd;">Mess Manager</h2>
+                <p>Hello <b>${mess.messName}</b>,</p>
+                <p>We received a request to reset your Manager PIN.</p>
+                <p>Your One Time Password (OTP) is:</p>
+                <h1 style="background: #f4f7f6; padding: 15px; letter-spacing: 5px; color: #dc3545; border-radius: 5px;">${otp}</h1>
+                <p style="color: #6c757d; font-size: 12px;">This OTP is valid for the next 10 minutes. Please do not share this with anyone.</p>
+            </div>
+        `;
+
+        // 🚀 Nodemailer এর বদলে সরাসরি আমাদের Brevo API কল করা হচ্ছে
+        await sendEmail({
+            email: mess.messEmail,
+            subject: '🔒 Your PIN Reset OTP - Mess Manager',
+            message: emailHTML
         });
 
-        // ইমেইলের ডিজাইন
-        const mailOptions = {
-            from: `"Mess Manager App" <${process.env.EMAIL_USER}>`,
-            to: mess.messEmail,
-            subject: '🔒 Your PIN Reset OTP - Mess Manager',
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin: auto;">
-                    <h2 style="color: #0d6efd;">Mess Manager</h2>
-                    <p>Hello <b>${mess.messName}</b>,</p>
-                    <p>We received a request to reset your Manager PIN.</p>
-                    <p>Your One Time Password (OTP) is:</p>
-                    <h1 style="background: #f4f7f6; padding: 15px; letter-spacing: 5px; color: #dc3545; border-radius: 5px;">${otp}</h1>
-                    <p style="color: #6c757d; font-size: 12px;">This OTP is valid for the next 10 minutes. Please do not share this with anyone.</p>
-                </div>
-            `
-        };
-
-        await transporter.sendMail(mailOptions);
         res.status(200).json({ success: true, message: 'আপনার ইমেইলে একটি ৬-ডিজিটের OTP পাঠানো হয়েছে!' });
 
     } catch (error) {
         console.error("Email Error: ", error);
-        res.status(500).json({ success: false, message: 'ইমেইল পাঠাতে সমস্যা হয়েছে। আপনার .env ফাইলের ইমেইল ও পাসওয়ার্ড চেক করুন।' });
+        res.status(500).json({ success: false, message: 'সার্ভার এরর। ইমেইল পাঠানো যায়নি।' });
     }
 };
 
