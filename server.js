@@ -11,6 +11,9 @@ const mongoSanitize = require('express-mongo-sanitize');
 dotenv.config();
 const app = express();
 
+// 🚀 ম্যাজিক ফিক্স: Render-এর প্রক্সিকে বিশ্বাস করার পারমিশন দেওয়া হলো
+app.set('trust proxy', 1);
+
 // ==========================================
 // 🛡️ SAAS SECURITY MIDDLEWARES 🛡️
 // ==========================================
