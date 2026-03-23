@@ -154,11 +154,24 @@ exports.getAllCoupons = async (req, res) => {
     }
 };
 
-// ১০. সব ট্রানজেকশন লোড করা
+// ১০. সব ট্রানজেকশন লোড করা (ইমেইল সহ)
 exports.getAllTransactions = async (req, res) => {
     try {
-        const transactions = await Transaction.find().sort({ date: -1 }); // নতুনগুলো আগে আসবে
-        res.status(200).json({ success: true, data: transactions });
+        const Transaction = require('../models/Transaction');
+        const Mess = require('../models/Mess');
+
+        const transactions = await Transaction.find().sort({ date: -1 }).lean(); 
+
+        // 🚀 ম্যাজিক: প্রতিটি ট্রানজেকশনের সাথে মেসের ইমেইল খুঁজে যুক্ত করা হচ্ছে
+        const updatedTransactions = await Promise.all(transactions.map(async (trx) => {
+            const mess = await Mess.findById(trx.messId) || await Mess.findOne({ messName: trx.messName });
+            return {
+                ...trx,
+                messEmail: mess ? mess.messEmail : 'Email not found'
+            };
+        }));
+
+        res.status(200).json({ success: true, data: updatedTransactions });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Error fetching transactions' });
     }

@@ -112,7 +112,7 @@ exports.bkashCallback = async (req, res) => {
                 // 🚀 ডাটাবেস থেকে বর্তমান প্রাইস আনা হচ্ছে
                 const settings = await AdminSetting.findOne() || { monthlyPrice: 99, yearlyPrice: 999 };
 
-                // ম্যাজিক লজিক: পেমেন্ট করা এমাউন্ট যদি মাসিক দামের দ্বিগুণ বা তার বেশি হয় (কুপন দিলেও), তবে সেটি ১ বছরের প্যাকেজ!
+                // ম্যাজিক লজিক: পেমেন্ট করা এমাউন্ট যদি মাসিক দামের দ্বিগুণ বা তার বেশি হয় (কুপন দিলেও), তবে সেটি ১ বছরের প্যাকেজ!
                 let addDays = Number(pkg) >= (settings.monthlyPrice * 2) ? 365 : 30;
 
                 let currentExpiry = mess.trialEndsAt && new Date(mess.trialEndsAt) > new Date() ? new Date(mess.trialEndsAt) : new Date();
@@ -123,16 +123,16 @@ exports.bkashCallback = async (req, res) => {
                 mess.trialEndsAt = currentExpiry;
                 await mess.save();
 
-                // 🚀 ট্রানজেকশন সেভ করা
+                // 🚀 ম্যাজিক আপডেট ১: ট্রানজেকশন সেভ করার সময় paymentID এর বদলে data.trxID দেওয়া হলো
                 await Transaction.create({
                     messId: mess._id,
                     messName: mess.messName,
                     amount: Number(pkg),
-                    trxId: paymentID,
+                    trxId: data.trxID, // <--- আসল TrxID সেভ হবে
                     status: 'Success'
                 });
 
-                // 🚀 কুপনের ব্যবহার কাউন্ট (usedCount) বাড়ানো
+                // 🚀 কুপনের ব্যবহার কাউন্ট (usedCount) বাড়ানো
                 if (promo) {
                     await Coupon.findOneAndUpdate({ code: promo }, { $inc: { usedCount: 1 } });
                 }
@@ -149,7 +149,7 @@ exports.bkashCallback = async (req, res) => {
                             
                             <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
                                 <p style="margin: 5px 0;"><strong>Amount Paid:</strong> ৳${pkg}</p>
-                                <p style="margin: 5px 0;"><strong>Transaction ID:</strong> ${paymentID}</p>
+                                <p style="margin: 5px 0;"><strong>Transaction ID:</strong> ${data.trxID}</p> 
                                 <p style="margin: 5px 0;"><strong>Valid Until:</strong> ${expiryDate}</p>
                             </div>
                             
@@ -159,7 +159,7 @@ exports.bkashCallback = async (req, res) => {
                         </div>
                     `;
 
-                    // 🚀 ম্যাজিক: এখান থেকে await তুলে দেওয়া হলো। এটি এখন ব্যাকগ্রাউন্ডে কাজ করবে!
+                    // 🚀 ম্যাজিক: এখান থেকে await তুলে দেওয়া হলো। এটি এখন ব্যাকগ্রাউন্ডে কাজ করবে!
                     sendEmail({
                         email: mess.messEmail,
                         subject: 'Payment Receipt & Confirmation - Mess Manager',
