@@ -210,54 +210,95 @@ exports.deleteCoupon = async (req, res) => {
     }
 };
 
-// ১১. ড্যাশবোর্ড চার্টের জন্য গত ৬ মাসের ডেটা
+// ১১. ড্যাশবোর্ড চার্টের জন্য ডায়নামিক ডেটা (১ মাস, ৬ মাস, ১ বছর)
 exports.getChartData = async (req, res) => {
     try {
         const Transaction = require('../models/Transaction');
         const Mess = require('../models/Mess');
         
-        // ৬ মাস আগের তারিখ বের করা
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-        sixMonthsAgo.setDate(1); 
-
-        // ডেটাবেস থেকে ডেটা আনা
-        const transactions = await Transaction.find({ date: { $gte: sixMonthsAgo }, status: 'Success' });
-        const messes = await Mess.find({ createdAt: { $gte: sixMonthsAgo } });
-
-        // মাসের নামগুলোর একটি ফাঁকা কাঠামো তৈরি
-        const months = [];
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const range = req.query.range || '6m'; // ডিফল্ট ৬ মাস
         
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date();
-            d.setMonth(d.getMonth() - i);
-            months.push({
-                month: d.getMonth(),
-                year: d.getFullYear(),
-                label: monthNames[d.getMonth()],
-                revenue: 0,
-                messes: 0
+        let startDate = new Date();
+        let labels = [];
+        let revenueData = [];
+        let messesData = [];
+        
+        // 🚀 লজিক ১: ৬ মাস এবং ১ বছরের হিসাব (মাসিক)
+        if (range === '1y' || range === '6m') {
+            const numMonths = range === '1y' ? 12 : 6;
+            startDate.setMonth(startDate.getMonth() - (numMonths - 1));
+            startDate.setDate(1);
+            startDate.setHours(0, 0, 0, 0);
+            
+            const transactions = await Transaction.find({ date: { $gte: startDate }, status: 'Success' });
+            const messes = await Mess.find({ createdAt: { $gte: startDate } });
+            
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const months = [];
+            
+            for (let i = numMonths - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setMonth(d.getMonth() - i);
+                months.push({
+                    month: d.getMonth(), year: d.getFullYear(),
+                    label: monthNames[d.getMonth()], revenue: 0, messes: 0
+                });
+            }
+            
+            transactions.forEach(trx => {
+                const trxDate = new Date(trx.date);
+                const match = months.find(m => m.month === trxDate.getMonth() && m.year === trxDate.getFullYear());
+                if (match) match.revenue += trx.amount;
             });
+            
+            messes.forEach(mess => {
+                const messDate = new Date(mess.createdAt);
+                const match = months.find(m => m.month === messDate.getMonth() && m.year === messDate.getFullYear());
+                if (match) match.messes += 1;
+            });
+            
+            labels = months.map(m => m.label);
+            revenueData = months.map(m => m.revenue);
+            messesData = months.map(m => m.messes);
+            
+        } 
+        // 🚀 লজিক ২: গত ৩০ দিনের হিসাব (দৈনিক)
+        else if (range === '1m') {
+            startDate.setDate(startDate.getDate() - 29);
+            startDate.setHours(0, 0, 0, 0);
+            
+            const transactions = await Transaction.find({ date: { $gte: startDate }, status: 'Success' });
+            const messes = await Mess.find({ createdAt: { $gte: startDate } });
+            
+            const days = [];
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            
+            for(let i = 29; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                days.push({
+                    date: d.getDate(), month: d.getMonth(), year: d.getFullYear(),
+                    label: `${d.getDate()} ${monthNames[d.getMonth()]}`, // যেমন: 15 Mar
+                    revenue: 0, messes: 0
+                });
+            }
+            
+            transactions.forEach(trx => {
+                const trxDate = new Date(trx.date);
+                const match = days.find(d => d.date === trxDate.getDate() && d.month === trxDate.getMonth() && d.year === trxDate.getFullYear());
+                if (match) match.revenue += trx.amount;
+            });
+            
+            messes.forEach(mess => {
+                const messDate = new Date(mess.createdAt);
+                const match = days.find(d => d.date === messDate.getDate() && d.month === messDate.getMonth() && d.year === messDate.getFullYear());
+                if (match) match.messes += 1;
+            });
+            
+            labels = days.map(d => d.label);
+            revenueData = days.map(d => d.revenue);
+            messesData = days.map(d => d.messes);
         }
-
-        // ট্রানজেকশন থেকে মাসের রেভিনিউ যোগ করা
-        transactions.forEach(trx => {
-            const trxDate = new Date(trx.date);
-            const match = months.find(m => m.month === trxDate.getMonth() && m.year === trxDate.getFullYear());
-            if (match) match.revenue += trx.amount;
-        });
-
-        // মেস থেকে মাসের নতুন রেজিস্ট্রেশন যোগ করা
-        messes.forEach(mess => {
-            const messDate = new Date(mess.createdAt);
-            const match = months.find(m => m.month === messDate.getMonth() && m.year === messDate.getFullYear());
-            if (match) match.messes += 1;
-        });
-
-        const labels = months.map(m => m.label);
-        const revenueData = months.map(m => m.revenue);
-        const messesData = months.map(m => m.messes);
 
         res.status(200).json({ success: true, labels, revenueData, messesData });
     } catch (error) {
