@@ -1,6 +1,6 @@
 const axios = require('axios');
-const Mess = require('../models/Mess'); 
-const Coupon = require('../models/Coupon'); 
+const Mess = require('../models/Mess');
+const Coupon = require('../models/Coupon');
 const AdminSetting = require('../models/AdminSetting');
 const Transaction = require('../models/Transaction');
 const sendEmail = require('../utils/sendEmail');
@@ -26,11 +26,11 @@ const getBkashToken = async () => {
 // ২. পেমেন্ট ক্রিয়েট করা
 exports.createPayment = async (req, res) => {
     try {
-        const { packagePrice, promoCode } = req.body; 
+        const { packagePrice, promoCode } = req.body;
         const messId = req.messId;
 
         const originalPrice = Number(packagePrice);
-        
+
         // ডাটাবেস থেকে বর্তমান আসল দাম নিয়ে আসা হচ্ছে
         const pricing = await AdminSetting.findOne() || { monthlyPrice: 99, yearlyPrice: 999 };
         const validPrices = [pricing.monthlyPrice, pricing.yearlyPrice];
@@ -44,7 +44,7 @@ exports.createPayment = async (req, res) => {
         // 🎟️ কুপন ভ্যালিডেশন এবং ডিসকাউন্ট হিসাব
         if (promoCode) {
             const coupon = await Coupon.findOne({ code: promoCode.toUpperCase(), isActive: true });
-            
+
             if (!coupon) return res.status(400).json({ success: false, message: 'ভুল প্রোমো কোড!' });
 
             // 🚀 মেয়াদ এবং লিমিট চেক
@@ -73,7 +73,7 @@ exports.createPayment = async (req, res) => {
             payerReference: messId,
             // 💡 নোটিশ: কলব্যাক লিংকে promoCode পাঠানো হচ্ছে
             callbackURL: `https://meal-manager-backend-kp8y.onrender.com/api/payment/callback?messId=${messId}&pkg=${originalPrice}&promo=${promoCode || ''}`,
-            amount: finalAmount, 
+            amount: finalAmount,
             currency: 'BDT',
             intent: 'sale',
             merchantInvoiceNumber: invoiceNo
@@ -104,10 +104,19 @@ exports.bkashCallback = async (req, res) => {
             });
 
             if (data && data.statusCode === '0000') {
+                const AdminSetting = require('../models/AdminSetting'); // 🚀 একদম ওপরে ইমপোর্ট করা না থাকলে এখানে কল করে নিলাম
+
+                // ...
                 const mess = await Mess.findById(messId);
-                let addDays = Number(pkg) === 999 ? 365 : 30; 
+
+                // 🚀 ডাটাবেস থেকে বর্তমান প্রাইস আনা হচ্ছে
+                const settings = await AdminSetting.findOne() || { monthlyPrice: 99, yearlyPrice: 999 };
+
+                // ম্যাজিক লজিক: পেমেন্ট করা এমাউন্ট যদি মাসিক দামের দ্বিগুণ বা তার বেশি হয় (কুপন দিলেও), তবে সেটি ১ বছরের প্যাকেজ!
+                let addDays = Number(pkg) >= (settings.monthlyPrice * 2) ? 365 : 30;
+
                 let currentExpiry = mess.trialEndsAt && new Date(mess.trialEndsAt) > new Date() ? new Date(mess.trialEndsAt) : new Date();
-                
+
                 currentExpiry.setDate(currentExpiry.getDate() + addDays);
 
                 mess.subscriptionStatus = 'active';
@@ -118,20 +127,20 @@ exports.bkashCallback = async (req, res) => {
                 await Transaction.create({
                     messId: mess._id,
                     messName: mess.messName,
-                    amount: Number(pkg), 
+                    amount: Number(pkg),
                     trxId: paymentID,
                     status: 'Success'
                 });
 
                 // 🚀 কুপনের ব্যবহার কাউন্ট (usedCount) বাড়ানো
-                if (promo) { 
-                    await Coupon.findOneAndUpdate({ code: promo }, { $inc: { usedCount: 1 } }); 
+                if (promo) {
+                    await Coupon.findOneAndUpdate({ code: promo }, { $inc: { usedCount: 1 } });
                 }
 
                 // 📧 মেইল পাঠানোর ম্যাজিক লজিক (Background Task)
                 try {
                     const expiryDate = currentExpiry.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-                    
+
                     const emailHTML = `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
                             <h2 style="color: #10b981; text-align: center;">Payment Successful! 🎉</h2>
@@ -156,7 +165,7 @@ exports.bkashCallback = async (req, res) => {
                         subject: 'Payment Receipt & Confirmation - Mess Manager',
                         message: emailHTML
                     }).catch(err => console.error("Background Email Error:", err.message));
-                    
+
                     console.log("Confirmation email triggered for:", mess.messEmail);
                 } catch (emailSetupError) {
                     console.error("Email Setup Failed:", emailSetupError.message);
@@ -168,7 +177,7 @@ exports.bkashCallback = async (req, res) => {
             console.error("Execute Error:", error.message);
         }
     }
-    
+
     res.redirect('https://mealmanager99.netlify.app/app.html?payment=failed');
 };
 
@@ -196,7 +205,7 @@ exports.verifyCoupon = async (req, res) => {
         }
 
         let finalPrice = packagePrice - discountAmount;
-        if (finalPrice < 1) finalPrice = 1; 
+        if (finalPrice < 1) finalPrice = 1;
 
         res.status(200).json({
             success: true,
