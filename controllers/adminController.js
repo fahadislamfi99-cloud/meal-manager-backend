@@ -210,22 +210,22 @@ exports.deleteCoupon = async (req, res) => {
     }
 };
 
-// ১১. ড্যাশবোর্ড চার্টের জন্য ডায়নামিক ডেটা (১ মাস, ৬ মাস, ১ বছর)
+// ১১. ড্যাশবোর্ড চার্টের জন্য ডায়নামিক ডেটা (১ মাস, ৬ মাস, নির্দিষ্ট মাস)
 exports.getChartData = async (req, res) => {
     try {
         const Transaction = require('../models/Transaction');
         const Mess = require('../models/Mess');
         
-        const range = req.query.range || '6m'; // ডিফল্ট ৬ মাস
+        const range = req.query.range || '6m'; 
         
-        let startDate = new Date();
-        let labels = [];
-        let revenueData = [];
-        let messesData = [];
+        let startDate, endDate;
+        let labels = [], revenueData = [], messesData = [];
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         
         // 🚀 লজিক ১: ৬ মাস এবং ১ বছরের হিসাব (মাসিক)
         if (range === '1y' || range === '6m') {
             const numMonths = range === '1y' ? 12 : 6;
+            startDate = new Date();
             startDate.setMonth(startDate.getMonth() - (numMonths - 1));
             startDate.setDate(1);
             startDate.setHours(0, 0, 0, 0);
@@ -233,16 +233,11 @@ exports.getChartData = async (req, res) => {
             const transactions = await Transaction.find({ date: { $gte: startDate }, status: 'Success' });
             const messes = await Mess.find({ createdAt: { $gte: startDate } });
             
-            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
             const months = [];
-            
             for (let i = numMonths - 1; i >= 0; i--) {
                 const d = new Date();
                 d.setMonth(d.getMonth() - i);
-                months.push({
-                    month: d.getMonth(), year: d.getFullYear(),
-                    label: monthNames[d.getMonth()], revenue: 0, messes: 0
-                });
+                months.push({ month: d.getMonth(), year: d.getFullYear(), label: monthNames[d.getMonth()], revenue: 0, messes: 0 });
             }
             
             transactions.forEach(trx => {
@@ -250,51 +245,65 @@ exports.getChartData = async (req, res) => {
                 const match = months.find(m => m.month === trxDate.getMonth() && m.year === trxDate.getFullYear());
                 if (match) match.revenue += trx.amount;
             });
-            
             messes.forEach(mess => {
                 const messDate = new Date(mess.createdAt);
                 const match = months.find(m => m.month === messDate.getMonth() && m.year === messDate.getFullYear());
                 if (match) match.messes += 1;
             });
             
-            labels = months.map(m => m.label);
-            revenueData = months.map(m => m.revenue);
-            messesData = months.map(m => m.messes);
-            
+            labels = months.map(m => m.label); revenueData = months.map(m => m.revenue); messesData = months.map(m => m.messes);
         } 
-        // 🚀 লজিক ২: গত ৩০ দিনের হিসাব (দৈনিক)
+        
+        // 🚀 লজিক ২: গত ৩০ দিনের হিসাব
         else if (range === '1m') {
-            startDate.setDate(startDate.getDate() - 29);
-            startDate.setHours(0, 0, 0, 0);
-            
+            // (আগের 1m লজিকটি যেমন ছিল তেমনই থাকবে, কোড ছোট রাখার জন্য আমি Specific Month এর লজিকে ফোকাস করছি)
+            startDate = new Date(); startDate.setDate(startDate.getDate() - 29); startDate.setHours(0, 0, 0, 0);
             const transactions = await Transaction.find({ date: { $gte: startDate }, status: 'Success' });
             const messes = await Mess.find({ createdAt: { $gte: startDate } });
             
             const days = [];
-            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-            
             for(let i = 29; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                days.push({
-                    date: d.getDate(), month: d.getMonth(), year: d.getFullYear(),
-                    label: `${d.getDate()} ${monthNames[d.getMonth()]}`, // যেমন: 15 Mar
-                    revenue: 0, messes: 0
-                });
+                const d = new Date(); d.setDate(d.getDate() - i);
+                days.push({ date: d.getDate(), month: d.getMonth(), year: d.getFullYear(), label: `${d.getDate()} ${monthNames[d.getMonth()]}`, revenue: 0, messes: 0 });
             }
+            // ... (আগের ম্যাপিং লজিক)
+            transactions.forEach(trx => { const trxDate = new Date(trx.date); const match = days.find(d => d.date === trxDate.getDate() && d.month === trxDate.getMonth()); if (match) match.revenue += trx.amount; });
+            messes.forEach(mess => { const messDate = new Date(mess.createdAt); const match = days.find(d => d.date === messDate.getDate() && d.month === messDate.getMonth()); if (match) match.messes += 1; });
             
+            labels = days.map(d => d.label); revenueData = days.map(d => d.revenue); messesData = days.map(d => d.messes);
+        }
+        
+        // 🚀 লজিক ৩: নির্দিষ্ট মাসের হিসাব (যেমন: "2026-03")
+        else if (range.includes('-')) {
+            const [year, month] = range.split('-');
+            const targetYear = parseInt(year);
+            const targetMonth = parseInt(month) - 1; 
+
+            startDate = new Date(targetYear, targetMonth, 1);
+            endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999); // মাসের শেষ দিন
+
+            const transactions = await Transaction.find({ date: { $gte: startDate, $lte: endDate }, status: 'Success' });
+            const messes = await Mess.find({ createdAt: { $gte: startDate, $lte: endDate } });
+
+            const daysInMonth = endDate.getDate();
+            const days = [];
+
+            for(let i = 1; i <= daysInMonth; i++) {
+                days.push({ date: i, label: `${i} ${monthNames[targetMonth]}`, revenue: 0, messes: 0 });
+            }
+
             transactions.forEach(trx => {
                 const trxDate = new Date(trx.date);
-                const match = days.find(d => d.date === trxDate.getDate() && d.month === trxDate.getMonth() && d.year === trxDate.getFullYear());
+                const match = days.find(d => d.date === trxDate.getDate());
                 if (match) match.revenue += trx.amount;
             });
             
             messes.forEach(mess => {
                 const messDate = new Date(mess.createdAt);
-                const match = days.find(d => d.date === messDate.getDate() && d.month === messDate.getMonth() && d.year === messDate.getFullYear());
+                const match = days.find(d => d.date === messDate.getDate());
                 if (match) match.messes += 1;
             });
-            
+
             labels = days.map(d => d.label);
             revenueData = days.map(d => d.revenue);
             messesData = days.map(d => d.messes);
