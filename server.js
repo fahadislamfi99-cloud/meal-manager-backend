@@ -76,6 +76,11 @@ app.use('/api/admin', adminRoutes);
 // ==========================================
 // 🗄️ DATABASE CONNECTION & SERVER START
 // ==========================================
+
+// ⏰ Start Automated Cron Jobs (নতুন যুক্ত করা হলো)
+const startCronJobs = require('./utils/cronJobs');
+startCronJobs();
+
 const PORT = process.env.PORT || 5000;
 
 mongoose.connect(process.env.MONGO_URI)
