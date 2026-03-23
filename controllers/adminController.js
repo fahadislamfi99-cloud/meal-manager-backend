@@ -251,3 +251,22 @@ exports.getChartData = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error fetching chart data' });
     }
 };
+
+// ১২. গ্লোবাল নোটিশ আপডেট করা
+exports.updateGlobalNotice = async (req, res) => {
+    try {
+        const { notice } = req.body;
+        let settings = await AdminSetting.findOne();
+        
+        if (!settings) {
+            settings = new AdminSetting({ globalNotice: notice });
+        } else {
+            settings.globalNotice = notice; // নতুন নোটিশ সেট করা হলো
+        }
+        
+        await settings.save();
+        res.status(200).json({ success: true, message: 'Notice published globally!', data: settings.globalNotice });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error updating notice' });
+    }
+};

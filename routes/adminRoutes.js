@@ -27,6 +27,8 @@ router.get('/coupons', adminProtect, adminController.getAllCoupons);
 router.post('/coupons', adminProtect, adminController.createCoupon); // নতুন
 router.delete('/coupons/:id', adminProtect, adminController.deleteCoupon); // নতুন
 
+router.post('/notice', adminProtect, adminController.updateGlobalNotice);
+
 // আনব্লক করার রাউট
 router.put('/messes/:messId/unblock', adminProtect, adminController.unblockMess);
 module.exports = router;
