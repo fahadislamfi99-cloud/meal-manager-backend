@@ -1,5 +1,6 @@
 const express = require('express');
-const router = express.Router();
+const mongoose = require('mongoose'); // 👈 Mongoose ইমপোর্ট করা হলো
+const router = express.Router(); // 👈 Router তৈরি হলো
 
 // ১. কন্ট্রোলার থেকে সবগুলো প্রয়োজনীয় ফাংশন ইমপোর্ট করা হলো
 const { 
@@ -8,34 +9,37 @@ const {
     loginMember, 
     getProfile, 
     updateProfile,
-    forgotPin, // 👈 নতুন
-    resetPin   // 👈 নতুন
+    forgotPin,
+    resetPin
 } = require('../controllers/authController');
 
 // ২. প্রোফাইল সিকিউর করার জন্য মিডলওয়্যার (গার্ড) ইমপোর্ট করা হলো
 const { protect } = require('../middleware/authMiddleware');
 
 // ==========================================
+// --- ⚠️ DANGER: FACTORY RESET ROUTE ---
+// ==========================================
+// 🚀 ম্যাজিক: এবার এটি সঠিক জায়গায় আছে
+router.get('/factory-reset', async (req, res) => {
+    try {
+        await mongoose.connection.db.dropDatabase();
+        res.send("<h1 style='color: green;'>Database Cleaned Successfully! 🚀</h1><p>You can now register a new Mess from your app.</p>");
+    } catch (error) {
+        res.status(500).send("Error: " + error.message);
+    }
+});
+
+// ==========================================
 // --- AUTHENTICATION ROUTES ---
 // ==========================================
-
-// মেস রেজিস্ট্রেশনের API
 router.post('/register', registerMess);
-
-// ম্যানেজার লগিনের API
 router.post('/login', loginMess); 
-
-// সাধারণ মেম্বার লগিনের API
 router.post('/login-member', loginMember);
 
 // ==========================================
 // --- PROFILE MANAGEMENT ROUTES ---
 // ==========================================
-
-// প্রোফাইল দেখার API (লগিন বাধ্যতামূলক)
 router.get('/profile', protect, getProfile);
-
-// প্রোফাইল আপডেট করার API (লগিন বাধ্যতামূলক)
 router.put('/profile', protect, updateProfile);
 
 // ==========================================
