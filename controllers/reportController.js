@@ -29,7 +29,8 @@ exports.getMonthlyReport = async (req, res, next) => {
         dateQuery.date = { $gte: start, $lte: end };
     }
 
-    const currentManager = await Manager.findOne({ messId: req.messId, year: managerYear, month: managerMonth });
+    // 🚀 ম্যাজিক: year/month এর বদলে এখন সরাসরি startDate দিয়ে ম্যানেজার খুঁজবে
+    const currentManager = await Manager.findOne({ messId: req.messId, startDate: startDate });
     const managerId = currentManager ? currentManager.member.toString() : null;
 
     const bazars = await Bazar.find(dateQuery);
