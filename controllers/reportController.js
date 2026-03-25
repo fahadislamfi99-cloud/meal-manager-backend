@@ -53,7 +53,7 @@ exports.getMonthlyReport = async (req, res, next) => {
         iftar: Number(appSettings.rateIftar) || 0
     };
 
-    const activeCalcMode = appSettings.calcMode || 'average';
+    const activeCalcMode = appSettings.calcMode || '';
 
     const meals = await Meal.find(dateQuery).populate('members', 'name');
     let totalMeals = 0; 
