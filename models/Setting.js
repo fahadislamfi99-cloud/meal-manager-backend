@@ -16,7 +16,7 @@ const settingSchema = new mongoose.Schema({
     yearlyPrice: { type: Number, default: 999 },
 
     // 🧮 মিল রেট এবং অন্যান্য সেটিংস
-    calcMode: { type: String, default: 'average' },
+    calcMode: { type: String, default: '' },
     rateBreakfast: { type: Number, default: 30 },
     rateLunch: { type: Number, default: 60 },
     rateDinner: { type: Number, default: 50 },
