@@ -110,47 +110,95 @@ exports.getMonthlyReport = async (req, res, next) => {
 };
 
 // ==========================================
-// 🚀 নতুন: পাবলিক মেম্বার খরচের বিবরণ
+// 🚀 নতুন: পাবলিক মেম্বার হিস্ট্রি (Passbook Style)
 // ==========================================
 exports.getPublicMemberDetail = async (req, res, next) => {
     try {
-        const { memberId, startDate, endDate } = req.query; 
+        const { memberId, startDate, endDate } = req.query;
 
-        // ১. সব ডেটা ফেচ করা
-        const [member, bazars, deposits, meals] = await Promise.all([
-            Member.findById(memberId).select('name room'),
-            Bazar.find({ messId: req.messId, member: memberId, date: { $gte: startDate, $lte: endDate } }).sort({ date: -1 }),
-            Deposit.find({ messId: req.messId, member: memberId, date: { $gte: startDate, $lte: endDate } }).sort({ date: -1 }),
-            Meal.find({ messId: req.messId, member: memberId, date: { $gte: startDate, $lte: endDate } }).sort({ date: -1 })
+        // ১. সেটিংস ও মেম্বার ডেটা আনা
+        const appSettings = await Setting.findOne({ messId: req.messId }) || {};
+        const member = await Member.findById(memberId).select('name room');
+        if (!member) return res.status(404).json({ success: false, message: 'Member not found' });
+
+        const activeCalcMode = appSettings.calcMode || 'average';
+        const fixedRates = {
+            breakfast: Number(appSettings.rateBreakfast) || 0,
+            lunch: Number(appSettings.rateLunch) || 0,
+            dinner: Number(appSettings.rateDinner) || 0,
+            sehri: Number(appSettings.rateSehri) || 0,
+            iftar: Number(appSettings.rateIftar) || 0
+        };
+
+        // ২. এই মাসের মোট খরচ ও মোট মিল (Average রেট বের করার জন্য)
+        let mealRate = 0;
+        const currentManager = await Manager.findOne({ messId: req.messId, startDate: startDate });
+        const managerId = currentManager ? currentManager.member.toString() : null;
+        const isManager = memberId === managerId;
+
+        if (activeCalcMode === 'average') {
+            const [bazars, allMeals] = await Promise.all([
+                Bazar.find({ messId: req.messId, date: { $gte: startDate, $lte: endDate } }),
+                Meal.find({ messId: req.messId, date: { $gte: startDate, $lte: endDate } })
+            ]);
+            const totalExpense = bazars.reduce((sum, b) => sum + b.amount, 0);
+            
+            let totalPayableMeals = 0;
+            allMeals.forEach(meal => {
+                meal.members.forEach(m => {
+                    if (m.toString() !== managerId) totalPayableMeals++;
+                });
+            });
+            mealRate = totalPayableMeals > 0 ? (totalExpense / totalPayableMeals) : 0;
+        }
+
+        // ৩. নির্দিষ্ট মেম্বারের ডেপোজিট এবং মিল আনা
+        const [deposits, memberMeals] = await Promise.all([
+            Deposit.find({ messId: req.messId, member: memberId, date: { $gte: startDate, $lte: endDate } }),
+            Meal.find({ messId: req.messId, members: memberId, date: { $gte: startDate, $lte: endDate } })
         ]);
 
-        if (!member) return res.status(404).json({ success: false, message: 'মেম্বার পাওয়া যায়নি!' });
+        // ৪. ট্রানজেকশন (Passbook) তৈরি করা
+        const transactions = [];
 
-        // ২. ক্যালকুলেশন এবং ফরমেটিং
-        const totalBazar = bazars.reduce((sum, b) => sum + b.amount, 0);
-        const totalDeposited = deposits.reduce((sum, d) => sum + d.amount, 0);
-        
-        let totalMealsCount = 0;
-        const formattedMeals = meals.map(m => {
-            const count = (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.sehri || 0) + (m.iftar || 0);
-            totalMealsCount += count;
-            return {
-                _id: m._id,
-                date: m.date,
-                mealsCount: count,
-                formattedDate: new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
-            };
+        deposits.forEach(d => {
+            transactions.push({
+                date: d.date,
+                details: d.amount < 0 ? '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">Refund / Minus</span>' : '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">Cash In</span>',
+                amount: d.amount
+            });
         });
+
+        memberMeals.forEach(m => {
+            let cost = 0;
+            if (!isManager) {
+                if (activeCalcMode === 'fixed') {
+                    const mType = (m.mealType || '').trim().toLowerCase();
+                    cost = fixedRates[mType] || 0;
+                } else {
+                    cost = mealRate;
+                }
+            }
+
+            transactions.push({
+                date: m.date,
+                details: `<span class="badge bg-primary bg-opacity-10 text-primary text-capitalize border border-primary border-opacity-25">${m.mealType} Meal</span>`,
+                amount: -cost // খরচ তাই মাইনাস
+            });
+        });
+
+        // তারিখ অনুযায়ী লেটেস্টটা আগে সাজানো
+        transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        const formattedTransactions = transactions.map(t => ({
+            date: new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+            details: t.details,
+            amount: t.amount
+        }));
 
         res.status(200).json({
             success: true,
-            data: {
-                member: { name: member.name, room: member.room },
-                bazars: bazars.map(b => ({ _id: b._id, date: b.date, item: b.item, amount: b.amount, formattedDate: new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) })),
-                deposits: deposits.map(d => ({ _id: d._id, date: d.date, method: d.method, amount: d.amount, formattedDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) })),
-                meals: formattedMeals,
-                totals: { bazar: totalBazar, deposit: totalDeposited, meals: totalMealsCount }
-            }
+            data: { transactions: formattedTransactions }
         });
 
     } catch (error) { next(error); }
