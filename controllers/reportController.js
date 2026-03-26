@@ -108,3 +108,50 @@ exports.getMonthlyReport = async (req, res, next) => {
     });
   } catch (error) { next(error); }
 };
+
+// ==========================================
+// 🚀 নতুন: পাবলিক মেম্বার খরচের বিবরণ
+// ==========================================
+exports.getPublicMemberDetail = async (req, res, next) => {
+    try {
+        const { memberId, startDate, endDate } = req.query; 
+
+        // ১. সব ডেটা ফেচ করা
+        const [member, bazars, deposits, meals] = await Promise.all([
+            Member.findById(memberId).select('name room'),
+            Bazar.find({ messId: req.messId, member: memberId, date: { $gte: startDate, $lte: endDate } }).sort({ date: -1 }),
+            Deposit.find({ messId: req.messId, member: memberId, date: { $gte: startDate, $lte: endDate } }).sort({ date: -1 }),
+            Meal.find({ messId: req.messId, member: memberId, date: { $gte: startDate, $lte: endDate } }).sort({ date: -1 })
+        ]);
+
+        if (!member) return res.status(404).json({ success: false, message: 'মেম্বার পাওয়া যায়নি!' });
+
+        // ২. ক্যালকুলেশন এবং ফরমেটিং
+        const totalBazar = bazars.reduce((sum, b) => sum + b.amount, 0);
+        const totalDeposited = deposits.reduce((sum, d) => sum + d.amount, 0);
+        
+        let totalMealsCount = 0;
+        const formattedMeals = meals.map(m => {
+            const count = (m.breakfast || 0) + (m.lunch || 0) + (m.dinner || 0) + (m.sehri || 0) + (m.iftar || 0);
+            totalMealsCount += count;
+            return {
+                _id: m._id,
+                date: m.date,
+                mealsCount: count,
+                formattedDate: new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                member: { name: member.name, room: member.room },
+                bazars: bazars.map(b => ({ _id: b._id, date: b.date, item: b.item, amount: b.amount, formattedDate: new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) })),
+                deposits: deposits.map(d => ({ _id: d._id, date: d.date, method: d.method, amount: d.amount, formattedDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) })),
+                meals: formattedMeals,
+                totals: { bazar: totalBazar, deposit: totalDeposited, meals: totalMealsCount }
+            }
+        });
+
+    } catch (error) { next(error); }
+};
