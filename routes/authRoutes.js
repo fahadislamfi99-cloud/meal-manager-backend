@@ -16,18 +16,6 @@ const {
 // ২. প্রোফাইল সিকিউর করার জন্য মিডলওয়্যার (গার্ড) ইমপোর্ট করা হলো
 const { protect } = require('../middleware/authMiddleware');
 
-// ==========================================
-// --- ⚠️ DANGER: FACTORY RESET ROUTE ---
-// ==========================================
-// 🚀 ম্যাজিক: এবার এটি সঠিক জায়গায় আছে
-router.get('/factory-reset', async (req, res) => {
-    try {
-        await mongoose.connection.db.dropDatabase();
-        res.send("<h1 style='color: green;'>Database Cleaned Successfully! 🚀</h1><p>You can now register a new Mess from your app.</p>");
-    } catch (error) {
-        res.status(500).send("Error: " + error.message);
-    }
-});
 
 // ==========================================
 // --- AUTHENTICATION ROUTES ---

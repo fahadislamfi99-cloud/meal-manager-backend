@@ -24,7 +24,12 @@ app.use(helmet());
 // ২. CORS Policy (শুধু আপনার ওয়েবসাইট ছাড়া অন্য কেউ API কল করতে পারবে না)
 // CORS Setup - Allow Frontend to connect
 app.use(cors({
-    origin: ['https://mealmanager99.netlify.app', 'http://127.0.0.1:5500', 'http://localhost:5000'], // আপনার Netlify লিংক
+    origin: [
+        'https://mealkhata.xyz', 
+        'https://www.mealkhata.xyz', 
+        'http://127.0.0.1:5500', 
+        'http://localhost:5000'
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
 }));
@@ -70,7 +75,6 @@ app.use('/api/manager', managerRoutes);
 app.use('/api/report', reportRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/public', publicRoutes);
-app.use(cors());
 app.use('/api/payment', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/tickets', ticketRoutes);
