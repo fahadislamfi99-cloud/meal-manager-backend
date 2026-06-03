@@ -171,14 +171,14 @@ exports.bkashCallback = async (req, res) => {
                     console.error("Email Setup Failed:", emailSetupError.message);
                 }
 
-                return res.redirect('https://mealmanager99.netlify.app/app.html?payment=success'); // (লোকালহোস্ট টেস্টের জন্য লিংকটি পাল্টে নিতে পারেন)
+                return res.redirect('https://mealkhata.xyz/app.html?payment=success');
             }
         } catch (error) {
             console.error("Execute Error:", error.message);
         }
     }
 
-    res.redirect('https://mealmanager99.netlify.app/app.html?payment=failed');
+    res.redirect('https://mealkhata.xyz/app.html?payment=failed');
 };
 
 // ৪. কুপন ভেরিফাই করা (পেমেন্টের আগে চেক)
